@@ -8,7 +8,6 @@
 #define MODE_CUBE 1
 #define MODE_PROD 2
 
-
 //////////////////////////////////////////
 // Structure definitions
 //////////////////////////////////////////
@@ -80,16 +79,26 @@ double average (time_t* times, int nb){
 		total += times[i];
 	}
 	return ((double)(total))/nb;
+}
 
+double variance (time_t* times, int nb, double avg){
+	time_t total = 0;
+	for (int i = 0; i < nb; ++i){
+		double curr = ((double)times[i]) - avg;
+		total += (curr*curr);
+	}
+	return ((double)(total))/nb;
+}
+
+double std_dev (double variance){
+	return sqrt(variance);
 }
 
 void game_init(game_t* game, int argc, char**argv){
 	// Default game : 10 squares between 10 and 100
 	game->mode = MODE_SQUARE;
 	game->nb = 10;
-	game->nb_a = 10;
-	game->nb_b = 100;
-
+	
 	if (argc >= 2)
 		game->nb = atoi (argv[1]);
 	if (argc >= 3){
@@ -100,10 +109,25 @@ void game_init(game_t* game, int argc, char**argv){
 		else if (strcmp(argv[2], "product") == 0)
 			game->mode = MODE_PROD;
 	}
+	// Extracts the range
 	if (argc >= 5)
 	{
 		game->nb_a = atoi (argv[3]);
 		game->nb_b = atoi (argv[4]);
+	}
+	// Or provide with a default one
+	else
+	{
+		if (game->mode == MODE_SQUARE || game->mode == MODE_CUBE)
+		{
+			game->nb_a = 10;
+			game->nb_b = 100;
+		}
+		else
+		{
+			game->nb_a = 2;
+			game->nb_b = 2;
+		}
 	}
 
 	go_message (game);
@@ -149,6 +173,17 @@ void game_check_answer(game_t* game, game_step_t* step){
 		printf ("Faux ! La reponse est %ld\n", step->result);
 }
 
+void game_final_score (game_t* game, time_t* times, int score)
+{
+	printf ("%d figures in [%d; %d]\n", g_game.nb, g_game.nb_a, g_game.nb_b);
+	printf ("Score : %d/%d good answers, \n", score, g_game.nb);
+	double avg = average(times, g_game.nb);
+	double var = variance(times, g_game.nb, avg);
+	double sdev= std_dev (var); 
+	printf ("Average answer time : %f\n", avg);
+	printf ("Standard deviation : %f\n", sdev);
+}
+
 //////////////////////////////////////////
 // Application entry point
 //////////////////////////////////////////
@@ -182,12 +217,11 @@ int main (int argc, char**argv)
 		// Verify answer
 		game_check_answer(&g_game, &step);
 		
-		printf ("Score : %d/%d, %d nombres\n\n", score, i+1, g_game.nb);
+		printf ("Score : %d/%d, %d figures\n\n", score, i+1, g_game.nb);
 	}
 
 	printf ("\n\n");
-	printf ("%d nombres dans [%d; %d]\n", g_game.nb, g_game.nb_a, g_game.nb_b);
-	printf ("Temps moyen : %f\n", average(times, g_game.nb));
+	game_final_score(&g_game, times, score);
 
 	return EXIT_SUCCESS;
 }
