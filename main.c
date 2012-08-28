@@ -40,6 +40,35 @@ game_t g_game;
 int score;
 
 //////////////////////////////////////////
+// Utilities
+//////////////////////////////////////////
+
+int random_range (int min, int max){
+	return (int)(min+rand ()%(max-min));
+}
+
+double average (double* times, int nb){
+	double total = 0;
+	for (int i = 0; i < nb; ++i){
+		total += times[i];
+	}
+	return ((double)(total))/nb;
+}
+
+double variance (double* times, int nb, double avg){
+	double total = 0;
+	for (int i = 0; i < nb; ++i){
+		double curr = ((double)times[i]) - avg;
+		total += (curr*curr);
+	}
+	return ((double)(total))/nb;
+}
+
+double std_dev (double variance){
+	return sqrt(variance);
+}
+
+//////////////////////////////////////////
 // Game code
 //////////////////////////////////////////
 
@@ -74,32 +103,13 @@ void go_message(game_t* game){
 	getchar();
 }
 
-double average (double* times, int nb){
-	double total = 0;
-	for (int i = 0; i < nb; ++i){
-		total += times[i];
-	}
-	return ((double)(total))/nb;
-}
-
-double variance (double* times, int nb, double avg){
-	double total = 0;
-	for (int i = 0; i < nb; ++i){
-		double curr = ((double)times[i]) - avg;
-		total += (curr*curr);
-	}
-	return ((double)(total))/nb;
-}
-
-double std_dev (double variance){
-	return sqrt(variance);
-}
-
 void game_init(game_t* game, int argc, char**argv){
 	// Default game : 10 squares between 10 and 100
 	game->mode = MODE_SQUARE;
 	game->nb = 10;
 	
+	srand(time(NULL));
+
 	if (argc >= 2)
 		game->nb = atoi (argv[1]);
 	if (argc >= 3){
@@ -132,10 +142,6 @@ void game_init(game_t* game, int argc, char**argv){
 	}
 
 	go_message (game);
-}
-
-int random_range (int min, int max){
-	return (int)(min+rand ()%(max-min));
 }
 
 void game_generate_value (game_t* game, game_step_t* step){
@@ -185,18 +191,23 @@ void game_final_score (game_t* game, double* times, int score)
 	printf ("Standard deviation : %3.3fs\n", sdev);
 }
 
+double compute_time_ms(struct timeval t1, struct timeval t2){
+	long mtime, seconds, useconds;  
+	seconds  = t2.tv_sec  - t1.tv_sec;
+	useconds = t2.tv_usec - t1.tv_usec;
+
+	mtime = ((seconds) * 1000 + useconds/1000.0) + 0.5;
+
+	return (double)(mtime * 0.001f);
+}
+
 //////////////////////////////////////////
 // Application entry point
 //////////////////////////////////////////
 
 int main (int argc, char**argv)
 {
-	srand(time(NULL));
-	
 	struct timeval t1, t2;
-
-    long mtime, seconds, useconds;   
-
 	game_step_t step;
 	
 	usage(argv);
@@ -206,8 +217,6 @@ int main (int argc, char**argv)
 
 	for (int i = 0; i < g_game.nb; i++)
 	{
-		// time(&t1);    
-
     	gettimeofday(&t1, NULL);
 
 		// Generate current number
@@ -217,15 +226,8 @@ int main (int argc, char**argv)
 		game_ask_answer(&step);
 
 		// Show timer
-		//time(&t2);
 		gettimeofday(&t2, NULL);
-		times[i] = 0;
-		seconds  = t2.tv_sec  - t1.tv_sec;
-    	useconds = t2.tv_usec - t1.tv_usec;
-
-    	mtime = ((seconds) * 1000 + useconds/1000.0) + 0.5;
-
-		times[i] = (double)(mtime * 0.001f);
+		times[i] = compute_time_ms (t1, t2);
 		printf ("%3.3f secondes\n", (float)(times[i]));
 
 		// Verify answer
