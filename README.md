@@ -1,5 +1,5 @@
 mental
-######
+======
 
 During the summer 2012, I've found [this TED video](http://www.ted.com/talks/arthur_benjamin_does_mathemagic.html) on mental calculation.
 
@@ -17,12 +17,14 @@ Compilation:
 ------------
 
 Compilation ok with gcc 4.6.3
-gcc main.c -o mental -lm -std=c99
+	
+   gcc main.c -o mental -lm -std=c99
 
 Usage :
 -------
 
 Usage : ./mental [nb mode a b]
+   
    nb : number of figures that will be asked. Default 10.
    mode : game mode. Can be "square", "cube", "product". Default to square
    a : minimum value. Default 10.
