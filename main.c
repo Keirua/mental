@@ -30,14 +30,9 @@ typedef struct {
 
 	long result; // expected result
 	long answer; // user's answer
+
+	double answer_time; // required time to get answer
 }game_step_t;
-
-//////////////////////////////////////////
-// Global variables
-//////////////////////////////////////////
-
-game_t g_game;
-int score;
 
 //////////////////////////////////////////
 // Utilities
@@ -47,25 +42,21 @@ int random_range (int min, int max){
 	return (int)(min+rand ()%(max-min));
 }
 
-double average (double* times, int nb){
+double average (game_step_t* steps, int nb){
 	double total = 0;
 	for (int i = 0; i < nb; ++i){
-		total += times[i];
+		total += steps[i].answer_time;
 	}
 	return ((double)(total))/nb;
 }
 
-double variance (double* times, int nb, double avg){
+double variance (game_step_t* steps, int nb, double avg){
 	double total = 0;
 	for (int i = 0; i < nb; ++i){
-		double curr = ((double)times[i]) - avg;
+		double curr = ((double)steps[i].answer_time) - avg;
 		total += (curr*curr);
 	}
 	return ((double)(total))/nb;
-}
-
-double std_dev (double variance){
-	return sqrt(variance);
 }
 
 //////////////////////////////////////////
@@ -89,6 +80,7 @@ void usage(char** argv){
 	printf ("\n");
 }
 
+// Small reminder of the rules before the game begins
 void go_message(game_t* game){
 	if (game->mode == MODE_SQUARE || game->mode == MODE_CUBE)
 	{
@@ -149,13 +141,11 @@ void game_generate_value (game_t* game, game_step_t* step){
 		step->nb_a = random_range(game->nb_a, game->nb_b);
 
 		step->result = step->nb_a * step->nb_a;
-		printf ("%d^2 ?", step->nb_a);
 	}
 	if (game->mode == MODE_CUBE){
 		step->nb_a = random_range(game->nb_a, game->nb_b);
 
 		step->result = step->nb_a * step->nb_a * step->nb_a;
-		printf ("%d^3 ?", step->nb_a);
 	}
 	if (game->mode == MODE_PROD){
 		int a_max = pow(10, game->nb_a),
@@ -164,8 +154,29 @@ void game_generate_value (game_t* game, game_step_t* step){
 		step->nb_b = random_range(b_max/10, b_max);
 
 		step->result = step->nb_a * step->nb_b;
-		printf ("%d*%d ?", step->nb_a, step->nb_b);
 	}
+}
+
+char* question_message (game_t* game, game_step_t* step){
+	char* mess = (char*)malloc(32*sizeof(char));
+
+	if (game->mode == MODE_SQUARE){
+		sprintf (mess, "%d^2 ?", step->nb_a);
+	}
+	if (game->mode == MODE_CUBE){
+		sprintf (mess, "%d^3 ?", step->nb_a);
+	}
+	if (game->mode == MODE_PROD){
+		sprintf (mess, "%d*%d ?", step->nb_a, step->nb_b);
+	}
+
+	return mess;
+}
+
+void game_display_question (game_t* game, game_step_t* step){
+	char* m = question_message(game, step);
+	printf("%s", m);
+	free (m);
 }
 
 void game_ask_answer(game_step_t* step){
@@ -173,23 +184,36 @@ void game_ask_answer(game_step_t* step){
 	scanf ("%ld", &(step->answer));
 }
 
-void game_check_answer(game_t* game, game_step_t* step){
-	if (step->answer == step->result)
-		++score;
-	else
-		printf ("Faux ! La reponse est %ld\n", step->result);
-}
 
-void game_final_score (game_t* game, double* times, int score)
+void game_final_score (game_t* game, game_step_t* steps)
 {
-	printf ("%d figures in [%d; %d]\n", g_game.nb, g_game.nb_a, g_game.nb_b);
-	printf ("Score : %d/%d good answers, \n", score, g_game.nb);
-	double avg = average(times, g_game.nb);
-	double var = variance(times, g_game.nb, avg);
-	double sdev= std_dev (var); 
+	int score = 0;
+	int i;
+	for (i = 0; i < game->nb; ++i)
+		score += (steps[i].answer == steps[i].result);
+	
+	printf ("\n");
+	printf ("%d figures in [%d; %d]\n", game->nb, game->nb_a, game->nb_b);
+	for (i = 0; i < game->nb; i++){
+		char* question = question_message (game, &steps[i]);
+		printf("%s %c %ld\t%ld\t%3.3fs\n", 
+			question, 
+			steps[i].result == steps[i].answer ? ' ': 'x', 
+			steps[i].result, 
+			steps[i].answer, 
+			steps[i].answer_time
+			);
+		free(question);
+	}
+
+	printf ("%d/%d good answers, \n", score, game->nb);
+	double avg = average(steps, game->nb);
+	double var = variance(steps, game->nb, avg);
+	double sdev= sqrt (var); 
 	printf ("Average answer time : %3.3fs\n", avg);
 	printf ("Standard deviation : %3.3fs\n", sdev);
 }
+
 
 double compute_time_ms(struct timeval t1, struct timeval t2){
 	long mtime, seconds, useconds;  
@@ -207,37 +231,32 @@ double compute_time_ms(struct timeval t1, struct timeval t2){
 
 int main (int argc, char**argv)
 {
+	game_t g_game;
 	struct timeval t1, t2;
-	game_step_t step;
-	
+	int i;
 	usage(argv);
 	game_init(&g_game, argc, argv);
 
-	double* times = (double*)malloc (g_game.nb*sizeof(double));
+	game_step_t* steps = (game_step_t*)malloc (g_game.nb*sizeof(game_step_t));
+	
+	for (i = 0; i < g_game.nb; i++)
+		game_generate_value(&g_game, &steps[i]);
 
-	for (int i = 0; i < g_game.nb; i++)
+	for (i = 0; i < g_game.nb; i++)
 	{
     	gettimeofday(&t1, NULL);
 
 		// Generate current number
-		game_generate_value(&g_game, &step);
+		game_display_question(&g_game, &(steps[i]));
 
 		// Get player's answer
-		game_ask_answer(&step);
+		game_ask_answer(&(steps[i]));
 
 		// Show timer
 		gettimeofday(&t2, NULL);
-		times[i] = compute_time_ms (t1, t2);
-		printf ("%3.3f secondes\n", (float)(times[i]));
-
-		// Verify answer
-		game_check_answer(&g_game, &step);
-		
-		printf ("Score : %d/%d, %d figures\n\n", score, i+1, g_game.nb);
+		steps[i].answer_time = compute_time_ms (t1, t2);
 	}
-
-	printf ("\n\n");
-	game_final_score(&g_game, times, score);
+	game_final_score(&g_game, steps);
 
 	return EXIT_SUCCESS;
 }
