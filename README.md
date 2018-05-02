@@ -23,6 +23,7 @@ Compilation ok with gcc 4.6.3
 Usage :
 -------
 
+```
 Usage : ./mental [nb mode a b]
    
    nb : number of figures that will be asked. Default 10.
@@ -32,3 +33,4 @@ Usage : ./mental [nb mode a b]
 
 If the game mode is "square" or "cube", min and max indicate the range of the values in which the number will be asked.
 If the game mode is "product", the values indicate the number of figures composing the 2 numbers. Ex: a=2 and b=3 mean that the product will be in the form (number with 2 figures)*(number with 3 figures)
+```
